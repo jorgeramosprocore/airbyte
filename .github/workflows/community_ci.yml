@@ -31,6 +31,7 @@ jobs:
           # This checkouts the fork
           # /!\ untrusted code
           # It's deemed safe as the following step is not executing code from forks
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.head_ref }}
           # Ensures that the git token is not persisted
           # It helps prevent access to token from code executed in the workflow
@@ -79,6 +80,7 @@ jobs:
           # This can checkouts forks
           # /!\ untrusted code
           # It's deemed safe as the community-ci environment requires manual reviewer approval to run
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.head_ref }}
           fetch-depth: 1
       - name: Extract branch name [WORKFLOW DISPATCH]

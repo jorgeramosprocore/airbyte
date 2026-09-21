@@ -11,10 +11,11 @@ class WebflowToAirbyteMapping:
         Airbyte/json-schema:  https://docs.airbyte.com/understanding-airbyte/supported-data-types/
     """
 
+    # Field type names per Webflow API v2 "Get Collection" response -
+    # https://developers.webflow.com/data/reference/cms/collections/get
     webflow_to_airbyte_mapping = {
-        "Bool": {"type": ["null", "boolean"]},
         "Switch": {"type": ["null", "boolean"]},
-        "Date": {
+        "DateTime": {
             "type": ["null", "string"],
             "format": "date-time",
         },
@@ -24,21 +25,17 @@ class WebflowToAirbyteMapping:
         "Phone": {
             "type": ["null", "string"],
         },
-        "ImageRef": {"type": ["null", "object"], "additionalProperties": True},
         "Image": {"type": ["null", "object"], "additionalProperties": True},
         "MultiImage": {"type": ["null", "array"]},
-        "ItemRef": {"type": ["null", "string"]},
-        "ItemRefSet": {"type": ["null", "array"]},
         "Reference": {"type": ["null", "string"]},
+        "MultiReference": {"type": ["null", "array"]},
         "Link": {"type": ["null", "string"]},
         "Color": {"type": ["null", "string"]},
         "Number": {"type": ["null", "number"]},
         "Option": {"type": ["null", "string"]},
         "PlainText": {"type": ["null", "string"]},
         "RichText": {"type": ["null", "string"]},
-        "User": {"type": ["null", "string"]},
-        "Price": {"type": ["null", "object"], "additionalProperties": True},
-        "Video": {"type": ["null", "string"]},
-        "FileRef": {"type": ["null", "object"]},
-        "SkuValues": {"type": ["null", "object"], "additionalProperties": True},
+        "VideoLink": {"type": ["null", "string"]},
+        "File": {"type": ["null", "object"], "additionalProperties": True},
+        "ExtFileRef": {"type": ["null", "object"], "additionalProperties": True},
     }

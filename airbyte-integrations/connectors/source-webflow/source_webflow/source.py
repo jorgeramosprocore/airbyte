@@ -179,22 +179,26 @@ class CollectionContents(WebflowStream):
 
     def path(self, **kwargs) -> str:
         """
-        The path to get the "items" in the requested collection uses the "_id" of the collection in the URL.
-        See: https://developers.webflow.com/#items
+        Returns the published ("live") items in the requested collection.
+        Webflow's v1 API (unversioned path) was sunset; this must use v2.
+        See: https://developers.webflow.com/data/reference/cms/collection-items/live-items/list-items-live
 
-        return collections/<collection_id>/items
+        return v2/collections/<collection_id>/items/live
         """
-        path = f"collections/{self.collection_id}/items"
+        path = f"v2/collections/{self.collection_id}/items/live"
         return path
 
     def next_page_token(self, response: requests.Response) -> Mapping[str, Any]:
         decoded_response = response.json()
-        if decoded_response.get("count", 0) != 0 and decoded_response.get("items", []) != []:
-            # Webflow uses an offset for pagination https://developers.webflow.com/#item-model
-            offset = decoded_response["offset"] + decoded_response["count"]
-            return {"offset": offset}
-        else:
+        items = decoded_response.get("items", [])
+        pagination = decoded_response.get("pagination", {})
+        limit = pagination.get("limit", 0)
+        offset = pagination.get("offset", 0)
+        total = pagination.get("total", 0)
+        if not items or offset + limit >= total:
             return {}
+        # Webflow v2 uses an offset for pagination - https://developers.webflow.com/data/docs/pagination
+        return {"offset": offset + limit}
 
     def request_params(
         self,
@@ -235,24 +239,33 @@ class CollectionContents(WebflowStream):
 
         # each record corresponds to a property in the json schema. So we loop over each of these properties
         # and add it to the json schema.
-        json_schema = {}
+        field_data_schema = {}
         for schema_property in schema_records:
-            json_schema.update(schema_property)
+            field_data_schema.update(schema_property)
 
-        # Manually add in _cid and _id, which are not included in the list of fields sent back from Webflow,
-        # but which are necessary for joining data in the database
-        extra_fields = {
-            "_id": {"type": ["null", "string"]},
-            "_cid": {"type": ["null", "string"]},
-            "_locale": {"type": ["null", "string"]},
+        # Webflow v2 items nest every collection-defined field under "fieldData"; only a small,
+        # fixed set of metadata fields live at the top level of the item.
+        # See: https://developers.webflow.com/data/reference/cms/collection-items/live-items/list-items-live
+        top_level_properties = {
+            "id": {"type": ["null", "string"]},
+            "cmsLocaleId": {"type": ["null", "string"]},
+            "lastPublished": {"type": ["null", "string"], "format": "date-time"},
+            "lastUpdated": {"type": ["null", "string"], "format": "date-time"},
+            "createdOn": {"type": ["null", "string"], "format": "date-time"},
+            "isArchived": {"type": ["null", "boolean"]},
+            "isDraft": {"type": ["null", "boolean"]},
+            "fieldData": {
+                "type": ["null", "object"],
+                "additionalProperties": True,
+                "properties": field_data_schema,
+            },
         }
-        json_schema.update(extra_fields)
 
         return {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "additionalProperties": True,
             "type": "object",
-            "properties": json_schema,
+            "properties": top_level_properties,
         }
 
 

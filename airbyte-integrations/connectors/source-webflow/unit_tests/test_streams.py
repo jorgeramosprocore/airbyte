@@ -6,7 +6,7 @@ from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import pytest
-from source_webflow.source import CollectionContents, SourceWebflow, WebflowStream
+from source_webflow.source import CollectionContents, CollectionSchema, SourceWebflow, WebflowStream
 
 
 @pytest.fixture
@@ -26,19 +26,60 @@ def test_request_params_of_collection_items(patch_base_class):
 
 def test_next_page_token_of_collection_items(patch_base_class):
     stream = CollectionContents()
-    response_data = {"items": [{"item1_key": "item1_val"}], "count": 10, "offset": 100}
+    response_data = {
+        "items": [{"item1_key": "item1_val"}],
+        "pagination": {"limit": 10, "offset": 100, "total": 200},
+    }
     inputs = {"response": MagicMock(json=lambda: response_data)}
     expected_token = {"offset": 110}
     assert stream.next_page_token(**inputs) == expected_token
 
 
+def test_next_page_token_of_collection_items_stops_when_exhausted(patch_base_class):
+    stream = CollectionContents()
+    response_data = {
+        "items": [{"item1_key": "item1_val"}],
+        "pagination": {"limit": 10, "offset": 190, "total": 200},
+    }
+    inputs = {"response": MagicMock(json=lambda: response_data)}
+    assert stream.next_page_token(**inputs) == {}
+
+
+def test_next_page_token_of_collection_items_stops_when_no_items(patch_base_class):
+    stream = CollectionContents()
+    response_data = {"items": [], "pagination": {"limit": 10, "offset": 0, "total": 0}}
+    inputs = {"response": MagicMock(json=lambda: response_data)}
+    assert stream.next_page_token(**inputs) == {}
+
+
 def test_parse_response_of_collection_items(patch_base_class):
     stream = CollectionContents()
-    mock_record = {"item1_key": "item1_val"}
+    mock_record = {"id": "item-1", "isArchived": False, "isDraft": False, "fieldData": {"name": "item1_val"}}
     response_data = {"items": [mock_record]}
     inputs = {"response": MagicMock(json=lambda: response_data)}
     parsed_item = next(stream.parse_response(**inputs))
     assert parsed_item == mock_record
+
+
+def test_collection_contents_path_uses_v2_live_items_endpoint(patch_base_class):
+    stream = CollectionContents(collection_id="collection-1")
+    assert stream.path() == "v2/collections/collection-1/items/live"
+
+
+def test_get_json_schema_nests_fields_under_field_data(patch_base_class, mocker):
+    mocker.patch.object(
+        CollectionSchema,
+        "read_records",
+        return_value=iter([{"title": {"type": ["null", "string"]}}]),
+    )
+    stream = CollectionContents(collection_id="collection-1")
+    schema = stream.get_json_schema()
+
+    assert schema["properties"]["id"] == {"type": ["null", "string"]}
+    assert schema["properties"]["isArchived"] == {"type": ["null", "boolean"]}
+    field_data_schema = schema["properties"]["fieldData"]
+    assert field_data_schema["type"] == ["null", "object"]
+    assert field_data_schema["properties"]["title"] == {"type": ["null", "string"]}
 
 
 def test_generate_streams(patch_base_class):
